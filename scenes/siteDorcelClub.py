@@ -12,6 +12,10 @@ class DorcelClubSpider(BaseSceneScraper):
         'https://www.dorcelclub.com'
     ]
 
+    headers = {
+        'Accept-Language': 'en-US,en',
+    }
+
     selector_map = {
         'title': '//h1/text()',
         'description': '///span[@class="full"]/p/text()',
@@ -25,12 +29,31 @@ class DorcelClubSpider(BaseSceneScraper):
     }
 
     cookies = {
-        'dorcelclub': '0nr9fu12gpqns760pfnjdmnrkn',
-        'u': '608cd90e153f5ac560e',
+        # ~ 'dorcelclub': 'jjp5ajprrugqqp7j04ibtugdlp',
+        # ~ 'u': '61836d0b0c409b94e77',
         'disclaimer2': 'xx'
     }
+
+    def start_requests(self):
+        yield scrapy.Request("https://www.dorcelclub.com/en/", callback=self.start_requests_2,
+                             headers=self.headers,
+                             cookies=self.cookies)
+
+    def start_requests_2(self, response):
+        if not hasattr(self, 'start_urls'):
+            raise AttributeError('start_urls missing')
+
+        if not self.start_urls:
+            raise AttributeError('start_urls selector missing')
+
+        for link in self.start_urls:
+            yield scrapy.Request(url=self.get_next_page_url(link, self.page),
+                                 callback=self.parse,
+                                 meta={'page': self.page},
+                                 headers=self.headers,
+                                 cookies=self.cookies)
 
     def get_scenes(self, response):
         scenes = response.css('div.scene a.thumb::attr(href)').getall()
         for scene in scenes:
-            yield scrapy.Request(url=self.format_link(response, scene), cookies=self.cookies, callback=self.parse_scene)
+            yield scrapy.Request(url=self.format_link(response, scene), cookies=self.cookies, callback=self.parse_scene, headers=self.headers)

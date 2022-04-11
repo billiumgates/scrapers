@@ -15,7 +15,7 @@ class SecretFriendsSpider(BaseSceneScraper):
     # newer updates
 
     paginations = [
-        '/portal/videos?q=&website=4Kcfnm&niche=&page=2#page-%s',
+        '/portal/videos?q=&website=4Kcfnm&niche=&page=%s',
         '/portal/videos?q=&website=BBvideo&niche=&page=%s',
         '/portal/videos?q=&website=BeautyAndTheSenior&niche=&page=%s',
         '/portal/videos?q=&website=ClubBangBoys&niche=&page=%s',
@@ -51,6 +51,7 @@ class SecretFriendsSpider(BaseSceneScraper):
         'title': '//h3/text()',
         'description': '//div[@class="top-5"]/text()',
         'date': '//span[contains(text(),"Published")]/b/text()',
+        'date_formats': ['%d.%m.%Y','%y-%m-%d'],        
         'image': '//video/@poster',
         'performers': '//div[contains(text(),"Performer")]/text()',
         'tags': '//span[contains(text(),"Niches")]/following-sibling::a/text()',

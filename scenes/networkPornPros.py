@@ -10,9 +10,12 @@ class PornprosSpider(BaseSceneScraper):
 
     start_urls = [
         "https://anal4k.com/",
+        "https://baeb.com/",
+        "https://bbcpie.com/",
         "https://castingcouch-x.com/",
         "https://cum4k.com/",
         "https://exotic4k.com/",
+        "https://facials4k.com/",
         "https://fantasyhd.com/",
         "https://girlcum.com/",
         "https://holed.com/",
@@ -25,6 +28,7 @@ class PornprosSpider(BaseSceneScraper):
         "https://puremature.com/",
         "https://spyfam.com/",
         'https://tiny4k.com/',
+        'https://wetvr.com/',
     ]
 
     selector_map = {

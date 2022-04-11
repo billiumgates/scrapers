@@ -12,7 +12,7 @@ class TugPassSpider(BaseSceneScraper):
 
     start_urls = [
         'https://www.tugpass.com',
-        
+
         #  Network sub-sites for reference
         # 'https://www.clubtug.com',
         # 'https://www.cumblastcity.com',
@@ -26,7 +26,7 @@ class TugPassSpider(BaseSceneScraper):
         # 'https://www.seemomsuck.com',
         # 'https://www.shadyspa.com',
         # 'https://www.teasepov.com',
-        # 'https://www.teentugs.com'        
+        # 'https://www.teentugs.com'
     ]
 
     selector_map = {
@@ -55,6 +55,11 @@ class TugPassSpider(BaseSceneScraper):
                         ".//a[@class='tag-btn']/text()").get().strip()
                 except BaseException:
                     site = "TugPass"
+
+                if date:
+                    date = self.parse_date(date).isoformat()
+                else:
+                    date = self.parse_date('today').isoformat()
 
                 if ".com" in site:
                     site = re.search('(.*?)\\.com', site).group(1).strip()

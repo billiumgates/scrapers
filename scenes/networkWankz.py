@@ -1,12 +1,10 @@
 import re
-
-import dateparser
 import scrapy
 
 from tpdb.BaseSceneScraper import BaseSceneScraper
 
 
-class networkWankzSpider(BaseSceneScraper):
+class NetworkWankzSpider(BaseSceneScraper):
     name = 'Wankz'
     network = "Wankz"
 
@@ -72,13 +70,15 @@ class networkWankzSpider(BaseSceneScraper):
         # ~ 'https://www.wildmassage.com',
         # ~ 'https://www.xxxatwork.com',
         # ~ 'https://www.youngdirtylesbians.com',
-        # ~ 'https://www.youngslutshardcore.com',     
+        # ~ 'https://www.youngslutshardcore.com',
     ]
 
     selector_map = {
         'title': '//title/text()',
         'description': '//div[@class="description"]/p/text()',
         'date': "//div[@class='views']/span/text()",
+        're_date': r'Added (\d{1,2} \w+,? \d{4})',
+        'date_formats': ['%d %B %Y', '%d %B, %Y'],
         'image': '//a[@class="noplayer"]/img/@src',
         'performers': '//div[@class="models-wrapper actors"]/a/span/text()',
         'tags': "//a[@class='cat']/text()",
@@ -94,12 +94,6 @@ class networkWankzSpider(BaseSceneScraper):
             if re.search(self.get_selector_map('external_id'), scene):
                 yield scrapy.Request(url=self.format_link(response, scene), callback=self.parse_scene)
 
-    def get_date(self, response):
-        search = re.search('span>Added\\ (.*?)<\\/span', response.text)
-        scenedate = dateparser.parse(search.group(1)).isoformat()
-        return scenedate
-
     def get_site(self, response):
-        site = response.xpath(
-            '//div[@class="inner"]/div/p/a[@class="sitelogom"]/img/@alt').get().strip()
+        site = response.xpath('//div[@class="inner"]/div/p/a[@class="sitelogom"]/img/@alt').get().strip()
         return site

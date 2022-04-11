@@ -1,10 +1,8 @@
+import re
+from urllib.parse import urlparse
 import scrapy
 
 from tpdb.BaseSceneScraper import BaseSceneScraper
-import re
-import dateparser
-from datetime import datetime
-from urllib.parse import urlparse
 
 
 class NomadMediaSpider(BaseSceneScraper):
@@ -33,9 +31,11 @@ class NomadMediaSpider(BaseSceneScraper):
 
         sceneresponses = response.xpath('//div[@class="details"]')
         for sceneresponse in sceneresponses:
-            date = sceneresponse.xpath('./p/strong/text()').get().strip()
-            if not date:
-                date = datetime.now()
+            date = sceneresponse.xpath('./p/strong/text()')
+            if date:
+                date = self.parse_date(date.get().strip()).isoformat()
+            else:
+                date = self.parse_date('today').isoformat()
 
             scene = sceneresponse.xpath('./h5/a/@href').get().strip()
             if re.search(self.get_selector_map('external_id'), scene):
@@ -47,7 +47,6 @@ class NomadMediaSpider(BaseSceneScraper):
 
         if image is not None:
             return self.format_link(response, image)
-
 
     def get_trailer(self, response):
         parsed_uri = urlparse(response.url)

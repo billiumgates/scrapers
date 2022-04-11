@@ -1,12 +1,14 @@
-import scrapy
+import re
+import string
+import json
+from datetime import date, timedelta
+import tldextract
 from chompjs import chompjs
+from extruct.jsonld import JsonLdExtractor
+import scrapy
+
 from tpdb.BaseSceneScraper import BaseSceneScraper
 from tpdb.items import SceneItem
-from extruct.jsonld import JsonLdExtractor
-import tldextract
-import re
-import dateparser
-import json
 
 
 def match_site(argument):
@@ -17,6 +19,7 @@ def match_site(argument):
         'activeduty': "Active Duty",
         'allblackx': "All BlackX",
         'allgirlmassage': "All Girl Massage",
+        'analacrobats': "Anal Acrobats",
         'bearback': "Bear Back",
         'bigfatcreampie': "Big Fat Creampie",
         'bigtoyxxx': "Big Toy XXX",
@@ -35,6 +38,7 @@ def match_site(argument):
         'currycreampie': "Curry Creampie",
         'darkx': "DarkX",
         'devilsgangbangs': "Devils Gangbangs",
+        'devilstgirls': "Devils TGirls",
         'dpfanatics': "DPFanatics",
         'dylanlucas': "Dylan Lucas",
         'eroticax': "EroticaX",
@@ -84,6 +88,7 @@ def match_site(argument):
         'povthis': "POV This",
         'ragingstallion': "Raging Stallion",
         'roccosiffredi': "Rocco Siffredi",
+        'seemyflixxx': "SeeMyFlixxx",
         'soapymassage': "Soapy Massage",
         'squirtalicious': "Squirtalicious",
         'squirtingorgies': "Squirting Orgies",
@@ -109,7 +114,7 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         ##############################
         # Network Sites
         ##############################
-        'https://www.21sextreme.com',
+        # 'https://www.21sextreme.com',  Moved to Adult Time API
         # 'https://www.lustygrandmas.com',
         # 'https://www.teachmefisting.com',
         # 'https://www.trannyfrombrazil.com',
@@ -137,7 +142,7 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         # 'https://www.webmature.com',
         # 'https://www.whiteghetto.com',
 
-        'https://www.fantasymassage.com',
+        # 'https://www.fantasymassage.com',  Moved to Adult Time API
         # 'https://www.allgirlmassage.com',
         # 'https://www.nurumassage.com',
 
@@ -163,8 +168,9 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         ##############################
         # Standalone Sites
         ##############################
-        'https://www.21naturals.com',
+        # 'https://www.21naturals.com', Moved to AdultTime API
         'https://www.activeduty.com',
+        'https://www.analacrobats.com',
         'https://www.bigfatcreampie.com',
         'https://www.bskow.com',
         'https://www.burningangel.com',
@@ -173,8 +179,7 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         'https://www.christophclarkonline.com/',
         'https://www.cumshotoasis.com',
         'https://www.currycreampie.com',
-        'https://www.devilsgangbangs.com',
-        'https://www.dpfanatics.com', 
+        'https://www.dpfanatics.com',
         'https://www.falconstudios.com',
         'https://www.footsiebabes.com',
         'https://www.gapingangels.com',
@@ -182,29 +187,27 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         'https://www.girlsandstuds.com',
         'https://www.girlstryanal.com',
         'https://www.grannyghetto.com',
-        'https://www.hairyundies.com',
         'https://www.hothouse.com',
+        'https://www.immorallive.com',  # Originally part of Blowpass, moved out of group
         'https://www.jakemalone.com',
         'https://www.jaysinxxx.com',
         'https://www.joeysilvera.com',
         'https://www.jonnidarkkoxxx.com',
         'https://www.lewood.com',
-        'https://www.lesbianfactor.com',
         'http://www.lexingtonsteele.com',
         'https://www.maledigital.com',
         'https://www.maskurbate.com',
         'https://www.milkingtable.com',
-        'https://www.mommysgirl.com', 
+        # 'https://www.mommysgirl.com', Part of Adulttime API now
         'https://www.nachovidalhardcore.com',
         'https://www.nudefightclub.com',
-        'https://www.outofthefamily.com',
         'https://www.pantypops.com',
         'https://www.povblowjobs.com',
         'https://www.povthis.com',
         'https://www.prettydirty.com',
         'https://www.ragingstallion.com',
+        'http://www.seemyflixxx.com',
         'https://www.soapymassage.com',
-        'https://www.squirtalicious.com',
         'https://www.squirtingorgies.com',
         'https://www.strapattackers.com',
         'https://www.tittycreampies.com',
@@ -213,8 +216,7 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         'https://www.tsfactor.com',
 
 
-        #####  API or Comments
-        # 'https://www.analacrobats.com' -> page links go to signup page
+        #  API or Comments
         # 'https://www.adulttime.com' -> No videos listed on site
         # 'https://www.bisexdigital.com' -> page links go to signup page
         # 'https://www.grandpasfuckteens.com' -> page links go to signup page
@@ -227,6 +229,13 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         # 'https://www.cockchokingsluts.com',
         # 'https://www.johnleslie.com',
 
+        #  Moved to AdultTime API
+        # 'https://www.devilsgangbangs.com',
+        # 'https://www.devilstgirls.com',
+        # 'https://www.hairyundies.com',
+        # 'https://www.lesbianfactor.com',
+        # 'https://www.outofthefamily.com',
+        # 'https://www.squirtalicious.com',
 
         # To do in another scraper, too different
         # 'https://www.ashleyfires.com'
@@ -256,8 +265,35 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         'trailer': '',
     }
 
+    def parse(self, response, **kwargs):
+        scenes = self.get_scenes(response)
+        count = 0
+        for scene in scenes:
+            count += 1
+            yield scene
+
+        if count:
+            totalpages = re.search(r'\"nbPages\":(\d+)', response.text)
+            if totalpages:
+                totalpages = int(totalpages.group(1))
+            else:
+                totalpages = 99999
+
+            if "analacrobats" in response.url:
+                totalpages = 99999
+
+            if 'page' in response.meta and response.meta['page'] < self.limit_pages and response.meta['page'] <= totalpages:
+                meta = response.meta
+                meta['page'] = meta['page'] + 1
+                url = self.get_next_page_url(response.url, meta['page'])
+                print('NEXT PAGE: ' + str(meta['page']) + "     (" + url + ")")
+                yield scrapy.Request(url,
+                                     callback=self.parse,
+                                     meta=meta,
+                                     headers=self.headers,
+                                     cookies=self.cookies)
+
     def get_scenes(self, response):
-        
         selectors = [
             "//div[@class='content']/ul[@class='sceneList']/li[contains(@class,'scene')]//a[contains(@class,'imgLink')]/@href",
             "//ul[@class='sceneList']/li[contains(@class,'sceneItem')]//a[contains(@class,'imgLink')]/@href",
@@ -275,7 +311,6 @@ class GammaEnterprisesSpider(BaseSceneScraper):
             scenes = response.xpath(' | '.join(selectors)).getall()
 
         for scene in scenes:
-
             if "fantasymassage" in response.url:
                 site = scene.xpath(
                     './/div[@class="tlcSourceSite"]/span/a/text()').get().strip()
@@ -285,8 +320,8 @@ class GammaEnterprisesSpider(BaseSceneScraper):
                     './following-sibling::p[@class="fromSite"]/a/strong/text()').get().strip()
                 scene = scene.xpath('./a[1]/@href').get().strip()
 
-            if "fantasymassage" in response.url or "blowpass" in response.url or "xempire" in response.url  or "pridestudios" in response.url and site:
-                yield scrapy.Request(url=self.format_link(response, scene), callback=self.parse_scene, meta={'site': site.lower().replace(".com","")})
+            if "fantasymassage" in response.url or "blowpass" in response.url or "xempire" in response.url or "pridestudios" in response.url and site:
+                yield scrapy.Request(url=self.format_link(response, scene), callback=self.parse_scene, meta={'site': site.lower().replace(".com", "")})
             else:
                 yield scrapy.Request(url=self.format_link(response, scene), callback=self.parse_scene)
 
@@ -298,23 +333,32 @@ class GammaEnterprisesSpider(BaseSceneScraper):
                 'picPreview\":\"(.*?)\",',
                 image).group(1).strip()
             image = image.replace('\\', '')
-            
+
         if not image:
             image = self.process_xpath(
-                response, self.get_selector_map('image')).get()       
-                
-        if re.search('jpg\?', image):
-            image = re.search('(.*jpg)\?', image).group(1)
+                response, self.get_selector_map('image')).get()
+
+        if re.search(r'jpg\?', image):
+            image = re.search(r'(.*jpg)\?', image).group(1)
 
         if image is not None:
+            if "transform" in image:
+                image_xpath = response.xpath('//meta[@name="twitter:image"]/@content').get()
+                if image_xpath:
+                    image = image_xpath.strip()
+                else:
+                    image = image.replace("https://transform.gammacdn.com/", "https://images02-openlife.gammacdn.com/")
             return self.format_link(response, image)
 
     def parse_scene(self, response):
-        global json
         data = response.css('script:contains("dataLayer =")::text').get()
-        data2 = response.xpath('//script[contains(text(),\'ScenePlayerId = "player"\')]|//script[contains(text(),\'ScenePlayerId = "scenePlayer"\')]').get()
-        data3 = json.loads(response.xpath('//script[@type="application/ld+json"]/text()').get())
-        data3 = data3[0]
+        data2 = response.xpath("//script[contains(text(), 'ScenePlayerId = \"player\"')] | //script[contains(text(), 'ScenePlayerId = \"scenePlayer\"')] | //script[contains(text(), 'sceneReleaseDate')]").get()
+        data3 = response.xpath('//script[@type="application/ld+json"]/text()').get()
+        if data3:
+            data3 = json.loads(data3)
+            data3 = data3[0]
+        else:
+            data3 = []
 
         if len(chompjs.parse_js_object(data)):
             json_data = chompjs.parse_js_object(data)[0]
@@ -332,7 +376,7 @@ class GammaEnterprisesSpider(BaseSceneScraper):
                 item['title'] = json_data['sceneDetails']['sceneTitle']
             else:
                 item['title'] = self.get_title(response)
-            
+
             if item['title']:
                 if ", scene #01" in item['title'].lower():
                     item['title'] = item['title'].replace(", Scene #01", "").replace(", scene #01", "")
@@ -344,7 +388,6 @@ class GammaEnterprisesSpider(BaseSceneScraper):
             else:
                 item['description'] = self.get_description(response)
 
-
             if 'site' in response.meta:
                 item['site'] = response.meta['site']
             elif 'productionCompany' in data3:
@@ -353,36 +396,34 @@ class GammaEnterprisesSpider(BaseSceneScraper):
                 item['site'] = json_data['siteName_pretty']
             elif 'siteName' in json_data:
                 item['site'] = json_data['siteName']
-                    
+
             if item['site']:
                 item['site'] = match_site(item['site'])
 
             if not item['site']:
                 item['site'] = self.get_site(response)
-            
-                
 
             if 'date' in response.meta:
                 item['date'] = response.meta['date']
             elif 'dateCreated' in jsonlde and 'nudefightclub' not in response.url and '0000-00-00' not in jsonlde['dateCreated']:
-                item['date'] = dateparser.parse(jsonlde['dateCreated']).isoformat()
+                item['date'] = self.parse_date(jsonlde['dateCreated'], date_formats=['%Y-%m-%d']).isoformat()
             elif 'datePublished' in jsonlde and 'nudefightclub' not in response.url and '0000-00-00' not in jsonlde['datePublished']:
-                item['date'] = dateparser.parse(jsonlde['datePublished']).isoformat()
+                item['date'] = self.parse_date(jsonlde['datePublished'], date_formats=['%Y-%m-%d']).isoformat()
             elif 'nudefightclub' in response.url:
-                date = response.xpath(
+                date1 = response.xpath(
                     '//div[@class="updatedDate"]/b/following-sibling::text()').get()
-                item['date'] = dateparser.parse(date.strip()).isoformat()
+                item['date'] = self.parse_date(date1.strip()).isoformat()
             else:
                 item['date'] = self.get_date(response)
-                
+
             if not item['date']:
                 item['date'] = self.get_date(response)
-                
+
             if data2:
-                date2 = re.search('sceneReleaseDate\":\"(\d{4}-\d{2}-\d{2})', data2)
+                date2 = re.search(r'sceneReleaseDate\":\"(\d{4}-\d{2}-\d{2})', data2)
                 if date2:
                     date2 = date2.group(1)
-                    date2 = dateparser.parse(date2.strip()).isoformat()
+                    date2 = self.parse_date(date2.strip(), date_formats=['%Y-%m-%d']).isoformat()
                     if item['date'] and date2 > item['date']:
                         item['date'] = date2
 
@@ -390,6 +431,8 @@ class GammaEnterprisesSpider(BaseSceneScraper):
                 item['image'] = response.meta['image']
             else:
                 item['image'] = self.get_image(response)
+
+            item['image_blob'] = None
 
             if 'performers' in response.meta:
                 item['performers'] = response.meta['performers']
@@ -405,6 +448,9 @@ class GammaEnterprisesSpider(BaseSceneScraper):
                 item['tags'] = jsonlde['keywords'].split(',')
             else:
                 item['tags'] = self.get_tags(response)
+
+            if item['tags']:
+                item['tags'] = list(map(lambda x: string.capwords(x.strip()), item['tags']))
 
             if 'id' in response.meta:
                 item['id'] = response.meta['id']
@@ -428,11 +474,31 @@ class GammaEnterprisesSpider(BaseSceneScraper):
             else:
                 item['parent'] = self.get_parent(response)
 
-            if self.debug:
-                print(item)
-            else:
-                return item
-                
+            if item['title']:
+                item['title'] = self.cleanup_title(item['title'])
+
+            if item['description']:
+                item['description'] = self.cleanup_description(item['description'])
+
+            if item['id'] and item['title']:
+                days = int(self.days)
+                if days > 27375:
+                    filterdate = "0000-00-00"
+                else:
+                    filterdate = date.today() - timedelta(days)
+                    filterdate = filterdate.strftime('%Y-%m-%d')
+
+                if self.debug:
+                    if not item['date'] > filterdate:
+                        item['filtered'] = "Scene filtered due to date restraint"
+                    print(item)
+                else:
+                    if filterdate:
+                        if item['date'] > filterdate:
+                            yield item
+                    else:
+                        yield item
+
         else:
             super().parse_scene(response)
 
@@ -448,7 +514,13 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         if 'activeduty' in base:
             selector = '/en/videos/latest/All-categories/0/All-soldiers/0/%s'
 
-        if 'blowpass' in base or 'allgirlmassage' in base:
+        if 'allgirlmassage' in base:
+            selector = '/en/videos/page/%s'
+
+        if 'analacrobats' in base:
+            selector = '/en/videos/updates/%s/All/0/Pornstar/0'
+
+        if 'blowpass' in base:
             selector = '/en/videos/blowpass/latest/All-Categories/0/All-Pornstars/0/%s'
 
         if 'bskow' in base or 'lexingtonsteele' in base:
@@ -466,6 +538,9 @@ class GammaEnterprisesSpider(BaseSceneScraper):
 
         if 'devilsfilm' in base:
             selector = '/en/scenes/AllCategories/0/%s'
+
+        if 'devilstgirls' in base:
+            selector = '/en/videos/updates/%s/All/0/Actor/0'
 
         if 'dpfanatics' in base:
             selector = '/en/videos/All-Categories/0/All-Pornstars/0/latest/%s'
@@ -487,6 +562,9 @@ class GammaEnterprisesSpider(BaseSceneScraper):
 
         if 'hothouse' in base:
             selector = '/en/videos/latest/All-Studios/0/All-categories/0/All-stars/0/All-movies/0/%s'
+
+        if 'immorallive' in base:
+            selector = '/en/videos/All-Categories/0/All-Pornstars/0/All/0/%s'
 
         if 'jaysinxxx' in base or 'jonnidarkkoxxx' in base or 'pantypops' in base:
             selector = '/en/scenes/All/0/latest/%s'
@@ -530,6 +608,9 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         if 'squirtingorgies' in base:
             selector = '/en/latest/%s#main'
 
+        if 'seemyflixxx' in base:
+            selector = '/en/videos/All-Categories/0/All-Pornstars/0/0/All-Dvds/%s'
+
         if 'tsfactor' in base:
             selector = '/en/videos/updates/%s/All/0/Pornstar/0'
 
@@ -537,7 +618,6 @@ class GammaEnterprisesSpider(BaseSceneScraper):
             selector = '/en/videos/xempire/latest/%s'
 
         returnurl = selector % page
-
         return self.format_url(base, returnurl)
 
     def get_site(self, response):
@@ -591,38 +671,36 @@ class GammaEnterprisesSpider(BaseSceneScraper):
         else:
             date = self.process_xpath(response, self.get_selector_map('date')).getall()
             if len(date) > 1:
-                for daterow in date: 
-                    datetemp=""
+                for daterow in date:
+                    datetemp = ""
                     daterow.replace('Released:', '').replace('Added:', '').rstrip().strip()
                     if re.match('(\\d{4}-\\d{2}-\\d{2})', daterow):
                         datetemp = re.search('(\\d{4}-\\d{2}-\\d{2})', daterow).group(1).strip()
                     elif re.match('(\\d{2}-\\d{2}-\\d{4})', daterow):
                         datetemp = re.search('(\\d{2}-\\d{2}-\\d{4})', daterow).group(1).strip()
                     if not datetemp:
-                        date = datetemp.strip()            
+                        date = datetemp.strip()
 
         matches = ['21sextreme']
         if not date or any(x in response.url for x in matches):
             date = response.xpath(
                 '//script[contains(text(),"sceneReleaseDate")]').getall()
             if len(date) > 1:
-                for daterow in date: 
+                for daterow in date:
                     datetemp = re.search('sceneReleaseDate\":\"(\\d{4}-\\d{2}-\\d{2})', daterow)
                     if datetemp:
                         datetemp = datetemp.group(1)
                         if datetemp:
-                            date = datetemp.strip()   
-                            
-
+                            date = datetemp.strip()
 
         if not date:
             date = response.xpath(
                 '//div[@class="updatedDate"]/b/following-sibling::text()').get()
-                
+
         if not date:
             date = response.xpath('//div[@class="updatedDate"]/b/following-sibling::text()').get()
-    
-        return dateparser.parse(date.strip()).isoformat()
+
+        return self.parse_date(date.strip(), date_formats=['%m-%d-%Y', '%Y-%m-%d']).isoformat()
 
     def get_title(self, response):
         title = self.process_xpath(
@@ -681,7 +759,7 @@ class GammaEnterprisesSpider(BaseSceneScraper):
                         tags = tag.split(",")
                     else:
                         tags = [tag]
-                    
+
         elif 'nachovidalhardcore' in response.url:
             return []
         else:
@@ -690,6 +768,10 @@ class GammaEnterprisesSpider(BaseSceneScraper):
                     response, self.get_selector_map('tags')).getall()
         if tags:
             tags = list(map(str.strip, tags))
+            if "Newest" in tags:
+                tags.remove("Newest")
+            if "newest" in tags:
+                tags.remove("newest")
             return list(map(lambda x: x.strip(), tags))
         return []
 
@@ -708,7 +790,7 @@ class GammaEnterprisesSpider(BaseSceneScraper):
 
         tld = tldextract.extract(response.url).domain
         parent = match_site(tld)
-        
+
         if "girlstryanal" in response.url or "webyoung" in response.url:
             return "Girlsway"
 

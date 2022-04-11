@@ -1,6 +1,4 @@
 import re
-
-import dateparser
 import scrapy
 
 from tpdb.BaseSceneScraper import BaseSceneScraper
@@ -21,21 +19,15 @@ class TonightsGirlfriendSpider(BaseSceneScraper):
         'date': "//span[@class='scenepage-date']/text()",
         'image': "//img[@class='playcard']/@src",
         'tags': '',
-        'external_id': 'scene/(.+)',
+        'external_id': r'scene/(.+)',
         'trailer': '',
-        'pagination': '/scenes?page=%s'
+        'pagination': r'/scenes?page=%s'
     }
 
-    def get_date(self, response):
-        data = response.xpath(
-            self.selector_map['date']).get().replace(
-            'Added:', '').strip()
-        return dateparser.parse(data).isoformat()
-
     def get_title(self, response):
-        id = self.get_id(response).replace('-', ' ')
-        id = re.sub("(\\d+)$", "", id)
-        return id.title()
+        externid = self.get_id(response).replace('-', ' ')
+        externid = re.sub(r"(\d+)$", "", externid)
+        return externid.title()
 
     def get_scenes(self, response):
         scenes = response.css(

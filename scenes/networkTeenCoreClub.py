@@ -1,12 +1,12 @@
-import scrapy
 import re
-import dateparser
-import tldextract
+from datetime import date, timedelta
 import json
 from urllib.parse import urlparse
+import scrapy
 
 from tpdb.BaseSceneScraper import BaseSceneScraper
 from tpdb.items import SceneItem
+
 
 class TeenCoreClubSpider(BaseSceneScraper):
     name = 'TeenCoreClub'
@@ -88,28 +88,20 @@ class TeenCoreClubSpider(BaseSceneScraper):
     }
 
     def start_requests(self):
-        if not hasattr(self, 'start_urls'):
-            raise AttributeError('start_urls missing')
-
-        if not self.start_urls:
-            raise AttributeError('start_urls selector missing')
-
         for link in self.start_urls:
             yield scrapy.Request(url=self.get_next_page_url(link[0], self.page, link[1]),
                                  callback=self.parse,
-                                 meta={'page': self.page, 'pagination':link[1], 'site':link[2]},
+                                 meta={'page': self.page, 'pagination': link[1], 'site': link[2]},
                                  headers=self.headers,
                                  cookies=self.cookies)
 
     def parse(self, response, **kwargs):
         count = 0
-        print (f'Response: {response.url}')
         scenes = self.parse_scenepage(response)
         if scenes:
             count = len(scenes)
             for scene in scenes:
                 yield scene
-                
 
         if count:
             if 'page' in response.meta and response.meta['page'] < self.limit_pages:
@@ -127,59 +119,72 @@ class TeenCoreClubSpider(BaseSceneScraper):
         return self.format_url(base, pagination % page)
 
     def parse_scenepage(self, response):
-        global json
-        itemlist=[]
+        itemlist = []
         meta = response.meta
-        
+
         parsed_uri = urlparse(response.url)
         domain = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_uri)
         jsondata = json.loads(response.text)
         data = jsondata['data']
         for jsonentry in data:
             item = SceneItem()
-            
+
             item['performers'] = []
             for model in jsonentry['actors']:
-                model['name'] = model['name'].replace("+","&").strip()
+                model['name'] = model['name'].replace("+", "&").strip()
                 if "&" in model['name']:
                     models = model['name'].split("&")
                     for star in models:
                         item['performers'].append(star.strip().title())
                 else:
                     item['performers'].append(model['name'].title())
-            
+
             item['title'] = jsonentry['title_en']
             if len(re.findall(r'\w+', item['title'])) == 1 and len(item['performers']):
                 if len(item['performers']) > 1:
                     item['title'] = ", ".join(item['performers']) + " (" + item['title'] + ")"
                 else:
                     item['title'] = item['performers'][0] + " (" + item['title'] + ")"
-                    
+
             item['description'] = jsonentry['description_en']
             if not item['description']:
                 item['description'] = ''
-                
+
             item['image'] = jsonentry['screenshots'][0]
             if isinstance(item['image'], str):
                 item['image'] = "https:" + item['image']
             else:
-                item['image'] = ''
+                item['image'] = None
+            item['image_blob'] = None
             item['id'] = jsonentry['id']
             item['trailer'] = ''
             item['url'] = domain + "video/" + str(jsonentry['id']) + "/" + jsonentry['slug']
-            item['date'] = dateparser.parse(jsonentry['publication_start'].strip()).isoformat()
+            item['date'] = self.parse_date(jsonentry['publication_start'].strip()).isoformat()
             if not item['date']:
-                item['date'] = dateparser.parse(jsonentry['created_at'].strip()).isoformat()
+                item['date'] = self.parse_date(jsonentry['created_at'].strip()).isoformat()
             item['site'] = meta['site']
             item['parent'] = "Teen Core Club"
             item['network'] = "Teen Core Club"
-                
+
             item['tags'] = []
 
-            itemlist.append(item.copy())
-                
+            days = int(self.days)
+            if days > 27375:
+                filterdate = "0000-00-00"
+            else:
+                filterdate = date.today() - timedelta(days)
+                filterdate = filterdate.strftime('%Y-%m-%d')
+
+            if self.debug:
+                if not item['date'] > filterdate:
+                    item['filtered'] = "Scene filtered due to date restraint"
+                print(item)
+            else:
+                if filterdate:
+                    if item['date'] > filterdate:
+                        itemlist.append(item.copy())
+                else:
+                    itemlist.append(item.copy())
+
             item.clear()
         return itemlist
-            
-                    
-

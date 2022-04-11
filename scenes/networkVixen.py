@@ -1,8 +1,7 @@
 import json
-import dateparser
-import scrapy
-
+from datetime import date, timedelta
 from urllib.parse import urlparse
+import scrapy
 
 from tpdb.BaseSceneScraper import BaseSceneScraper
 from tpdb.items import SceneItem
@@ -19,6 +18,7 @@ class VixenScraper(BaseSceneScraper):
         'https://www.blackedraw.com',
         'https://www.tushyraw.com',
         'https://www.deeper.com',
+        'https://www.slayed.com',
     ]
 
     sites = {
@@ -28,6 +28,7 @@ class VixenScraper(BaseSceneScraper):
         'BLACKEDRAW': 'BlackedRaw',
         'TUSHYRAW': 'TushyRaw',
         'DEEPER': 'Deeper',
+        'SLAYED': 'Slayed',
     }
 
     selector_map = {
@@ -45,15 +46,21 @@ class VixenScraper(BaseSceneScraper):
                 method='POST',
                 headers={'Content-Type': 'application/json'},
                 meta={'page': self.page},
-                body=self.get_graphql_body(self.per_page, self.page, link),
+                body=self.get_graphql_search_body(self.per_page, self.page, link),
             )
 
     def parse(self, response, **kwargs):
         json = response.json()['data']['findVideos']
         scenes = json['edges']
         for item in scenes:
-            data = item['node']
-            yield self.parse_scene(response, data)
+            id = item['node']['slug']
+            yield scrapy.Request(
+                url=response.url,
+                callback=self.parse_scene,
+                method='POST',
+                headers={'Content-Type': 'application/json'},
+                body=self.get_graphql_body(id, response.url),
+            )
 
         if 'page' in response.meta and response.meta['page'] < self.limit_pages and json['pageInfo']['hasNextPage']:
             meta = response.meta
@@ -66,25 +73,28 @@ class VixenScraper(BaseSceneScraper):
                 method='POST',
                 headers={'Content-Type': 'application/json'},
                 meta={'page': meta['page']},
-                body=self.get_graphql_body(self.per_page, meta['page'], response.url),
+                body=self.get_graphql_search_body(self.per_page, meta['page'], response.url),
             )
 
-    def parse_scene(self, response, data):
+    def parse_scene(self, response):
+        data = response.json()['data']['findOneVideo']
+
         scene = SceneItem()
 
         scene['id'] = data['id']
-        scene['title'] = data['title']
-        scene['description'] = data['description']
+        scene['title'] = self.cleanup_title(data['title'])
+        scene['description'] = self.cleanup_description(data['description']) if 'description' in data else ''
 
         site = data['site']
         if site.upper() in self.sites:
             site = self.sites[site.upper()]
         scene['site'] = site
 
-        scene['network'] = self.network
-        scene['parent'] = self.get_parent(response)
+        scene['network'] = 'Vixen'
+        scene['parent'] = site
+        scene['image_blob'] = None
 
-        scene['date'] = dateparser.parse(data['releaseDate']).isoformat()
+        scene['date'] = self.parse_date(data['releaseDate']).isoformat()
         scene['url'] = self.format_link(response, '/videos/' + data['slug'])
 
         scene['performers'] = []
@@ -92,8 +102,9 @@ class VixenScraper(BaseSceneScraper):
             scene['performers'].append(model['name'])
 
         scene['tags'] = []
-        for tag in data['tags']:
-            scene['tags'].append(tag)
+        if data['tags']:
+            for tag in data['tags']:
+                scene['tags'].append(tag)
 
         largest = 0
         for image in data['images']['poster']:
@@ -109,9 +120,25 @@ class VixenScraper(BaseSceneScraper):
 
         scene['trailer'] = '' if 'trailer' not in scene or not scene['trailer'] else scene['trailer']
 
-        return scene
+        days = int(self.days)
+        if days > 27375:
+            filterdate = "0000-00-00"
+        else:
+            filterdate = date.today() - timedelta(days)
+            filterdate = filterdate.strftime('%Y-%m-%d')
 
-    def get_graphql_body(self, per_page, page, link):
+        if self.debug:
+            if not scene['date'] > filterdate:
+                scene['filtered'] = "Scene filtered due to date restraint"
+            print(scene)
+        else:
+            if filterdate:
+                if scene['date'] > filterdate:
+                    yield scene
+            else:
+                yield scene
+
+    def get_graphql_search_body(self, per_page, page, link):
         site_name = urlparse(link).hostname.replace('www.', '').replace('.com', '').upper()
 
         return json.dumps({
@@ -126,76 +153,99 @@ class VixenScraper(BaseSceneScraper):
                 },
                 'filter': [],
             },
+            'query': self.get_grapgql_search_query(),
+        })
+
+    def get_grapgql_search_query(self):
+        return '''
+query getFilteredVideos(
+  $order: ListOrderInput!
+  $filter: [ListFilterInput!]
+  $site: Site!
+  $first: Int!
+  $skip: Int!
+) {
+  findVideos(
+    input: {
+      filter: $filter
+      order: $order
+      first: $first
+      skip: $skip
+      site: $site
+    }
+  ) {
+    edges {
+      node {
+        id: uuid
+        videoId
+        slug
+      }
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+    }
+    totalCount
+  }
+}
+'''
+
+    def get_graphql_body(self, id, link):
+        site_name = urlparse(link).hostname.replace('www.', '').replace('.com', '').upper()
+
+        return json.dumps({
+            'operationName': 'getVideo',
+            'variables': {
+                'videoSlug': id,
+                'site': site_name
+            },
             'query': self.get_grapgql_query(),
         })
 
     def get_grapgql_query(self):
         return '''
-query getFilteredVideos(
-    $order: ListOrderInput!
-    $filter: [ListFilterInput!]
-    $site: Site!
-    $first: Int!
-    $skip: Int!
-) {
-    findVideos(
-        input: {
-            filter: $filter
-            order: $order
-            first: $first
-            skip: $skip
-            site: $site
-        }
-    ) {
-        edges {
-            node {
-                id: uuid
-                videoId
-                slug
-                title
-                description
-                site
-                releaseDate
-                tags
-                models {
-                    name
-                    slug
-                }
-                previews {
-                    poster {
-                        ...PreviewInfo
-                    }
-                }
-                images {
-                    poster {
-                        ...ImageInfo
-                    }
-                }
-            }
-        }
-        pageInfo {
-            hasNextPage
-            hasPreviousPage
-        }
-        totalCount
+query getVideo($videoSlug: String, $site: Site) {
+  findOneVideo(input: { slug: $videoSlug, site: $site }) {
+    id: uuid
+    videoId
+    slug
+    title
+    site
+    description
+    releaseDate
+    tags
+    models {
+      name
+      slug
     }
+    previews {
+      poster {
+        ...PreviewInfo
+      }
+    }
+    images {
+      poster {
+        ...ImageInfo
+      }
+    }
+  }
 }
-
 fragment ImageInfo on Image {
-    src
-    placeholder
-    width
-    height
-    highdpi {
-        double
-        triple
-    }
+  src
+  placeholder
+  width
+  height
+  highdpi {
+    double
+    triple
+  }
 }
 
 fragment PreviewInfo on Preview {
-    src
-    width
-    height
-    type
+  src
+  width
+  height
+  type
 }
+
 '''

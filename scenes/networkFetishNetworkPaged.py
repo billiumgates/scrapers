@@ -1,6 +1,5 @@
-import scrapy
 import re
-import dateparser
+import scrapy
 import tldextract
 from tpdb.BaseSceneScraper import BaseSceneScraper
 from tpdb.items import SceneItem
@@ -8,14 +7,15 @@ from tpdb.items import SceneItem
 
 def match_site(argument):
     match = {
-        'bdsmprison':'BDSM Prison',
-        'brutalpickups':'Brutal Pickups',
-        'hostelxxx':'Hostel XXX',
-        'latinapatrol':'Latina Patrol',
-        'teensinthewoods':'Teens in the Woods',
-        'brutaldungeon':'Brutal Dungeon',
+        'bdsmprison': 'BDSM Prison',
+        'brutalpickups': 'Brutal Pickups',
+        'hostelxxx': 'Hostel XXX',
+        'latinapatrol': 'Latina Patrol',
+        'teensinthewoods': 'Teens in the Woods',
+        'brutaldungeon': 'Brutal Dungeon',
     }
     return match.get(argument, argument)
+
 
 class FetishNetworkPagedSpider(BaseSceneScraper):
     name = 'FetishNetworkPaged'
@@ -38,7 +38,7 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
         'image': '',
         'performers': '',
         'tags': "",
-        'external_id': 'updates\\/(.*)\\.html$',
+        'external_id': r'updates\\/(.*)\\.html$',
         'trailer': '//video/source/@src',
         'pagination': '/tour/categories/movies_%s_d.html'
     }
@@ -53,19 +53,18 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
         for link in self.start_urls:
             yield scrapy.Request(url=self.get_next_page_url(link[0], self.page, link[1]),
                                  callback=self.parse,
-                                 meta={'page': self.page, 'pagination':link[1]},
+                                 meta={'page': self.page, 'pagination': link[1]},
                                  headers=self.headers,
                                  cookies=self.cookies)
 
     def parse(self, response, **kwargs):
         count = 0
-        
+
         scenes = self.parse_scenepage(response)
         if scenes:
             count = len(scenes)
             for scene in scenes:
                 yield scene
-                
 
         if count:
             if 'page' in response.meta and response.meta['page'] < self.limit_pages:
@@ -86,7 +85,7 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
     def parse_scenepage(self, response):
         scenelist = []
         if "brutaldungeon" in response.url:
-            scenes = response.xpath('//div[contains(@class,"download-box-large")]')
+            scenes = response.xpath('//div[contains(@class,"download-box-large")]/label/..')
         else:
             scenes = response.xpath('//div[@class="row"]/div[contains(@class,"content-image-video")]')
         for scene in scenes:
@@ -94,7 +93,7 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
             item['performers'] = []
             item['title'] = ''
             item['id'] = ''
-            
+
             if "brutaldungeon" in response.url:
                 title = scene.xpath('.//h1/text()').get()
             else:
@@ -108,8 +107,8 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
                         item['performers'] = [performers.strip()]
                 if "Teens In The Woods" in title:
                     performers = title.replace("Teens In The Woods", "")
-                    performers = performers.replace("-","")
-                    performers = performers.replace("&",",")
+                    performers = performers.replace("-", "")
+                    performers = performers.replace("&", ",")
                     performers = performers.strip()
                     performerlist = performers.split(",")
                     for performeritem in performerlist:
@@ -120,11 +119,11 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
                     item['performers'] = [title]
                 if "brutaldungeon" in response.url:
                     item['performers'] = []
-                    
+
             if title:
                 title = title.strip()
                 item['title'] = title
-            
+
             if "brutaldungeon" in response.url:
                 date = scene.xpath('.//span[contains(@class,"date")]/text()').get()
             else:
@@ -132,14 +131,10 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
 
             if date:
                 date = date.strip()
-                
-            if date:
-                date = date.strip()
-                item['date'] = dateparser.parse(date.strip()).isoformat()
+                item['date'] = self.parse_date(date.strip()).isoformat()
             else:
-                date = "1970-01-01"
-                item['date'] = dateparser.parse(date).isoformat()                
-            
+                item['date'] = self.parse_date('today').isoformat()
+
             if "brutaldungeon" in response.url:
                 description = scene.xpath('.//p/text()').get()
             else:
@@ -149,8 +144,7 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
                 item['description'] = description
             else:
                 item['description'] = ''
-                
-            
+
             image = scene.xpath('.//video/@poster').get()
             if not image:
                 image = scene.xpath('.//div[contains(@class,"image-section-blk")]/a/img/@src').get()
@@ -160,25 +154,24 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
                         image = scene.xpath('.//label[@class="player"]//video/@poster').get()
                         if not image:
                             image = scene.xpath('.//label[@class="player"]/a/img/@src').get()
-                        
 
             if image:
-                baseurl = re.search('(.*\/t2\/)', response.url).group(1)
+                baseurl = re.search(r'(.*\/t2\/)', response.url).group(1)
                 image = baseurl + image.strip()
             else:
-                image = ''
-                
+                image = None
+
             item['image'] = image
+            item['image_blob'] = None
 
             idcode = ''
-            if re.search('p\d{3,4}_s\d{3,4}_\d{3,4}_', item['image']):
-                idcode = re.search('p\d{3,4}_s\d{3,4}_(\d{3,4})_', item['image']).group(1)
+            if re.search(r'p\d{3,4}_s\d{3,4}_\d{3,4}_', item['image']):
+                idcode = re.search(r'p\d{3,4}_s\d{3,4}_(\d{3,4})_', item['image']).group(1)
                 if idcode:
                     item['id'] = idcode.strip()
             else:
                 if item['title']:
                     item['id'] = item['title'].replace(" ", "-")
-
 
             item['url'] = response.url
             item['tags'] = []
@@ -187,12 +180,9 @@ class FetishNetworkPagedSpider(BaseSceneScraper):
             item['network'] = "Fetish Network"
             sitename = tldextract.extract(response.url).domain
             item['site'] = match_site(sitename)
-                    
+
             if item['id']:
                 scenelist.append(item.copy())
                 item.clear()
-                
-        return scenelist
-            
-                    
 
+        return scenelist

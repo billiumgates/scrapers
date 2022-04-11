@@ -1,8 +1,6 @@
 import json
 import re
-from datetime import datetime
-
-import dateparser
+from datetime import date, timedelta
 import scrapy
 
 from tpdb.BaseSceneScraper import BaseSceneScraper
@@ -33,11 +31,11 @@ link_to_info = {
         "contentText": v2_videos_content_text,
         "v2": True
     },
-    "mylf-organic-2uxkybtwvv": {
+    "mylf-elastic-hka5k7vyuw": {
         "site": "MYLF",
-        "navText": videos_nav_text,
-        "contentText": videos_content_text,
-        "v2": False
+        "navText": v2_videos_content_text,
+        "contentText": v2_videos_content_text,
+        "v2": True
     },
     "FOS-organic-n5oaginage": {
         "site": "Foster Tapes",
@@ -112,7 +110,7 @@ link_to_info = {
         "v2": False
     },
     "Organic-pna-OongoaF1": {
-        "site": "PervNana",
+        "site": "Perv Nana",
         "navText": movies_nav_text,
         "contentText": movies_content_text,
         "v2": False
@@ -123,7 +121,7 @@ link_to_info = {
         "contentText": movies_content_text,
         "v2": False
     },
-    "organic-mylfdom-ieH7cuos": {
+    "organic-mylfdom-ieH7cuos%20": {
         "site": "MYLFDom",
         "navText": movies_nav_text,
         "contentText": movies_content_text,
@@ -140,7 +138,67 @@ link_to_info = {
         "navText": movies_nav_text,
         "contentText": movies_content_text,
         "v2": False
-    }
+    },
+    "organic-Freeusemilf-uug2tohT": {
+        "site": "Free Use MILF",
+        "navText": movies_nav_text,
+        "contentText": movies_content_text,
+        "v2": False
+    },
+    "organic-momswap-6fkccwxhi0": {
+        "site": "Mom Swap",
+        "navText": movies_nav_text,
+        "contentText": movies_content_text,
+        "v2": False
+    },
+    "organic-hhk-am7zoi2G": {
+        "site": "Hijab Hookups",
+        "navText": movies_nav_text,
+        "contentText": movies_content_text,
+        "v2": False
+    },
+    "organic-doc-utei5Mai": {
+        "site": "Perv Doctor",
+        "navText": movies_nav_text,
+        "contentText": movies_content_text,
+        "v2": False
+    },
+    "organic-shm-iev4iCh6": {
+        "site": "Stay Home MILF",
+        "navText": movies_nav_text,
+        "contentText": movies_content_text,
+        "v2": False
+    },
+    "organic-sss-no7OhCoo": {
+        "site": "Step Siblings",
+        "navText": movies_nav_text,
+        "contentText": movies_content_text,
+        "v2": False
+    },
+    "organic-pvt-fePaiz9a": {
+        "site": "Perv Therapy",
+        "navText": movies_nav_text,
+        "contentText": movies_content_text,
+        "v2": False
+    },
+    "organic-swp-Jo4daep7": {
+        "site": "Sis Swap",
+        "navText": movies_nav_text,
+        "contentText": movies_content_text,
+        "v2": False
+    },
+    "organic-1-saeXae9v": {
+        "site": "Tiny Sis",
+        "navText": movies_nav_text,
+        "contentText": movies_content_text,
+        "v2": False
+    },
+    # ~ "Organic-bad-aiGhaiL5": {
+    # ~ "site": "BadMILFs",
+    # ~ "navText": movies_nav_text,
+    # ~ "contentText": movies_content_text,
+    # ~ "v2": False
+    # ~ },
 }
 
 
@@ -181,7 +239,6 @@ class TeamSkeetNetworkSpider(BaseSceneScraper):
         'external_id': '\\/(.+)\\.json'
     }
 
-            
     def start_requests(self):
 
         for linkName, siteInfo in link_to_info.items():
@@ -191,11 +248,10 @@ class TeamSkeetNetworkSpider(BaseSceneScraper):
                 is_v2 = False
             if is_v2:
                 start = "0"
-                limit=250
+                limit = 250
             else:
                 start = "aaaaaaaa"
-                limit=450
-            url=format_nav_url(linkName, start, limit, is_v2)
+                limit = 450
             yield scrapy.Request(url=format_nav_url(linkName, start, limit, is_v2),
                                  callback=self.parse,
                                  meta={'page': self.page, 'site': siteInfo['site'], 'is_v2': is_v2},
@@ -205,7 +261,6 @@ class TeamSkeetNetworkSpider(BaseSceneScraper):
     def parse(self, response, **kwargs):
         meta = response.meta
         highwater = ""
-        limit = 250
         if not meta['is_v2']:
             scene_list = json.loads(response.body)
             if scene_list:
@@ -227,24 +282,25 @@ class TeamSkeetNetworkSpider(BaseSceneScraper):
                                      callback=self.parse,
                                      meta=meta,
                                      headers=self.headers,
-                                     cookies=self.cookies)            
+                                     cookies=self.cookies)
 
     def parse_scene(self, response):
         data = response.json()
         item = SceneItem()
         is_v2 = "store2" in response.url
-                
+
         if "store2" in response.url:
             data = data['_source']
         item['title'] = data['title']
         item['description'] = data['description']
         item['image'] = data['img']
+        item['image_blob'] = None
         if 'tags' in data:
             item['tags'] = data['tags']
         else:
             item['tags'] = []
         item['id'] = data['id']
-        
+
         if 'videoTrailer' in data:
             item['trailer'] = data['videoTrailer']
         elif 'video' in data:
@@ -257,9 +313,9 @@ class TeamSkeetNetworkSpider(BaseSceneScraper):
         item['parent'] = response.meta['site']
 
         if 'publishedDate' in data:
-            item['date'] = dateparser.parse(data['publishedDate']).isoformat()
+            item['date'] = self.parse_date(data['publishedDate']).isoformat()
         else:
-            item['date'] = datetime.now().isoformat()
+            item['date'] = self.parse_date('today').isoformat()
 
         if 'site' in data:
             if 'name' in data['site']:
@@ -274,16 +330,28 @@ class TeamSkeetNetworkSpider(BaseSceneScraper):
         else:
             item['url'] = "https://www." + response.meta['site'].replace(" ", "").lower() + ".com/movies/" + data['id']
 
-
         item['performers'] = []
         if 'models' in data:
             for model in data['models']:
                 item['performers'].append(model['modelName'])
 
+        days = int(self.days)
+        if days > 27375:
+            filterdate = "0000-00-00"
+        else:
+            filterdate = date.today() - timedelta(days)
+            filterdate = filterdate.strftime('%Y-%m-%d')
+
         if self.debug:
+            if not item['date'] > filterdate:
+                item['filtered'] = "Scene filtered due to date restraint"
             print(item)
         else:
-            yield item
+            if filterdate:
+                if item['date'] > filterdate:
+                    yield item
+            else:
+                yield item
 
     def get_scenes(self, response):
         scene_info = json.loads(response.body)
@@ -296,7 +364,7 @@ class TeamSkeetNetworkSpider(BaseSceneScraper):
                 if "id" in scene:
                     scene_id = scene["id"]
                     scene_url = format_scene_url(site_link, scene_id, is_v2)
-                    yield scrapy.Request(url=scene_url, callback=self.parse_scene, meta=response.meta)      
+                    yield scrapy.Request(url=scene_url, callback=self.parse_scene, meta=response.meta)
         else:
             if scene_info:
                 for key, scene in scene_info.items():
@@ -305,11 +373,10 @@ class TeamSkeetNetworkSpider(BaseSceneScraper):
                         scene_url = format_scene_url(site_link, scene_id, is_v2)
                         yield scrapy.Request(url=scene_url, callback=self.parse_scene, meta=response.meta)
 
-
     def get_next_page_url(self, base, page, highwater):
         limit = 250
         if 'store2' in base:
-            start = str(250 * (page-1))
+            start = str(250 * (page - 1))
             is_v2 = True
         else:
             is_v2 = False

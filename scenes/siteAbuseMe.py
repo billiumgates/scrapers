@@ -1,12 +1,9 @@
 import re
-
-import dateparser
 import scrapy
-
 from tpdb.BaseSceneScraper import BaseSceneScraper
 
 
-class siteAbuseMeSpider(BaseSceneScraper):
+class SiteAbuseMeSpider(BaseSceneScraper):
     name = 'AbuseMe'
     network = "Abuse Me"
     parent = "Abuse Me"
@@ -22,8 +19,9 @@ class siteAbuseMeSpider(BaseSceneScraper):
         'image': '//img[@class="playerPic"]/@src',
         'performers': '//script[contains(text(),"shootModels")]/text()',
         'tags': '//meta[@http-equiv="keywords"]/@content',
-        'external_id': '\/video(\d+)',
+        'external_id': r'\/video(\d+)',
         'trailer': '//script[@type="text/javascript"]/text()',
+        're_trailer': r'\'//(.*.mp4)\'',
         'pagination': '/videos/%s'
     }
 
@@ -33,11 +31,6 @@ class siteAbuseMeSpider(BaseSceneScraper):
             if re.search(self.get_selector_map('external_id'), scene):
                 yield scrapy.Request(url=self.format_link(response, scene), callback=self.parse_scene)
 
-    def get_date(self, response):
-        date = self.process_xpath(response, self.get_selector_map('date')).get()
-        date = date.replace('Added:', '').strip()
-        return dateparser.parse(date.strip()).isoformat()
-
     def get_image(self, response):
         image = self.process_xpath(response, self.get_selector_map('image')).get()
         if image:
@@ -46,45 +39,26 @@ class siteAbuseMeSpider(BaseSceneScraper):
                 image = "http://" + image
             return self.format_link(response, image)
         return ''
-        
-    def get_site(self, response):
-        return "Abuse Me"
 
     def get_performers(self, response):
         if 'performers' in self.get_selector_map() and self.get_selector_map('performers'):
             performers = self.process_xpath(response, self.get_selector_map('performers')).get()
             if performers:
-                performers = re.findall('\"\d+ : (.*?)\",', performers)
+                performers = re.findall(r'\"\d+ : (.*?)\",', performers)
                 if performers:
                     return list(map(lambda x: x.strip().title(), performers))
         return ''
 
     def get_tags(self, response):
-        if self.get_selector_map('tags'):
-            tags = self.process_xpath(response, self.get_selector_map('tags')).get()
-            tags = tags.split(",")
-            tags = list(map(lambda x: x.strip(), tags))
-            if 'abuse me' in tags:
-                tags.remove('abuse me')
-            if 'abuseme' in tags:
-                tags.remove('abuseme')
-            if 'abuseme.com' in tags:
-                tags.remove('abuseme.com')
-            if '4k' in tags:
-                tags.remove('4k')
-            if '4K' in tags:
-                tags.remove('4K')
-            if tags:
-                return list(map(lambda x: x.strip().title(), tags))
-        return []
-
-
-    def get_trailer(self, response):
-        if 'trailer' in self.get_selector_map() and self.get_selector_map('trailer'):
-            trailer = self.process_xpath(response, self.get_selector_map('trailer')).get()
-            if trailer:
-                trailer = re.search('\'\/\/(.*.mp4)\'', trailer).group(1)
-                if trailer:
-                    trailer = "http://" + trailer
-                    return trailer.strip()
-        return ''
+        tags = super().get_tags(response)
+        if 'abuse me' in tags:
+            tags.remove('abuse me')
+        if 'abuseme' in tags:
+            tags.remove('abuseme')
+        if 'abuseme.com' in tags:
+            tags.remove('abuseme.com')
+        if '4k' in tags:
+            tags.remove('4k')
+        if '4K' in tags:
+            tags.remove('4K')
+        return tags

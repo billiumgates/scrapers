@@ -1,7 +1,7 @@
 import re
-
 import scrapy
 import tldextract
+
 from tpdb.BaseSceneScraper import BaseSceneScraper
 
 
@@ -10,11 +10,12 @@ def match_site(argument):
         'girlgirl': "Girl Girl",
         'julesjordan': "Jules Jordan",
         'manuelferrara': "Manuel Ferrara",
+        'theassfactory': "The Ass Factory",
         'spermswallowers': "Sperm Swallowers",
     }
-    return match.get(argument, '')
-    
-    
+    return match.get(argument, argument)
+
+
 class JulesJordanSpider(BaseSceneScraper):
     name = 'JulesJordan'
     network = 'julesjordan'
@@ -33,7 +34,7 @@ class JulesJordanSpider(BaseSceneScraper):
         'date': '//div[@class="cell update_date"]/text()',
         'performers': '//div[@class="backgroundcolor_info"]/span[@class="update_models"]/a/text() | //div[@class="gallery_info"]//span[@class="update_models"]/div[@class="container"]/a/text()',
         'tags': '//span[@class="update_tags"]/a/text()',
-        'external_id': 'trial\\/scenes\\/(.+)\\.html',
+        'external_id': r'trial/scenes/(.+)\.html',
         'trailer': '',
         'pagination': '/trial/categories/movies_%s_d.html'
     }
@@ -52,8 +53,7 @@ class JulesJordanSpider(BaseSceneScraper):
         if result:
             return self.format_link(response, result.group(1))
 
-
     def get_site(self, response):
-        site = tldextract.extract(response.url).domain            
+        site = tldextract.extract(response.url).domain
         site = match_site(site)
         return site
